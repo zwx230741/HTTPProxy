@@ -20,421 +20,470 @@
 
 char *read_line(int sockfd)
 {
-    int buffer_size = 2;
-    char *line = (char*)malloc(sizeof(char)*buffer_size+1);
-    char c;
-    int length = 0;
-    int counter = 0;
+   int buffer_size = 2;
+   char *line = (char *)malloc(sizeof(char) * buffer_size + 1);
+   char c;
+   int length = 0;
+   int counter = 0;
 
-    while(1)
-    {
-        length = recv(sockfd, &c, 1, 0);
-        line[counter++] = c;
+   while(1)
+   {
+      length = recv(sockfd, &c, 1, 0);
+      line[counter++] = c;
 
-        if(c == '\n')
-        {
-            line[counter] = '\0';
-            return line;
-        }
+      if(c == '\n')
+      {
+         line[counter] = '\0';
+         return line;
+      }
 
-        // reallocate the buffer
-        if(counter == buffer_size)
-        {
-            buffer_size *= 2;
+      // reallocate the buffer
+      if(counter == buffer_size)
+      {
+         buffer_size *= 2;
 
-            // TODO: should probably allocate +1 for the null terminator,
-            // but not sure.
-            line = (char*)realloc(line, sizeof(char)*buffer_size);
-        }
+         // TODO: should probably allocate +1 for the null terminator,
+         // but not sure.
+         line = (char *)realloc(line, sizeof(char) * buffer_size);
+      }
 
-    }
+   }
 
-    return NULL;
+   return NULL;
 }
 
-int *fail(char *p) {
-    int len = strlen(p);
-    int *f = (int *) malloc(len * sizeof(int));
-    f[0] = -1;
-    int i, j;
-    for(j = 1; j < len; j++) {
-        for(i = f[j-1]; ; i = f[i]) {
-            if(p[j] == p[i+1]) {
-                f[j] = i + 1;
-                break;
-            }
-            else if(i == -1) {
-                f[j] = -1;
-                break;
-            }
-        }
-    }
-    return f;
+int *fail(char *p)
+{
+   int len = strlen(p);
+   int *f = (int *) malloc(len * sizeof(int));
+   f[0] = -1;
+   int i, j;
+
+   for(j = 1; j < len; j++)
+   {
+      for(i = f[j - 1]; ; i = f[i])
+      {
+         if(p[j] == p[i + 1])
+         {
+            f[j] = i + 1;
+            break;
+         }
+         else if(i == -1)
+         {
+            f[j] = -1;
+            break;
+         }
+      }
+   }
+
+   return f;
 }
 
-int kmp(char *t, int len, char *p) {
-    int *f = fail(p);
-    int i, j;
-    for(i = 0, j = 0; i < len && j < strlen(p); ) {
-        if(t[i] == p[j]) {
-            i++;
-            j++;
-        }
-        else if(j == 0)
-            i++;
-        else
-            j = f[j-1] + 1;
-    }
-	free(f);
-    return j == strlen(p) ? i - strlen(p) : -1;
+int kmp(char *t, int len, char *p)
+{
+   int *f = fail(p);
+   int i, j;
+
+   for(i = 0, j = 0; i < len && j < strlen(p);)
+   {
+      if(t[i] == p[j])
+      {
+         i++;
+         j++;
+      }
+      else if(j == 0)
+      {
+         i++;
+      }
+      else
+      {
+         j = f[j - 1] + 1;
+      }
+   }
+
+   free(f);
+   return j == strlen(p) ? i - strlen(p) : -1;
 }
 
 void sensitive_words(char str[], int len)
-{	
-	char word[] = "农民";
-	int index = 0;
-	int res = 0;
-	int i = 0, j = 0;
+{
+   char word[] = "农民";
+   int index = 0;
+   int res = 0;
+   int i = 0, j = 0;
 
-	for(i = 0; i < len; i++)
-	{
-		res = kmp(str + index, len, word);
-		if(res < 0)
-		{
-			break;
-		}
-		LOG(LOG_ERROR, "sensitive_words res %d\n", res);
-		index += res;		
-		LOG(LOG_ERROR, "sensitive_words index %d\n", index);
-		for(j = 0; j < strlen(word); j++)
-		{
-			str[index + j] = '*'; //脱敏处理
-		}
-		index += strlen(word);
-	}
+   for(i = 0; i < len; i++)
+   {
+      res = kmp(str + index, len, word);
+
+      if(res < 0)
+      {
+         break;
+      }
+
+      LOG(LOG_ERROR, "sensitive_words res %d\n", res);
+      index += res;
+      LOG(LOG_ERROR, "sensitive_words index %d\n", index);
+
+      for(j = 0; j < strlen(word); j++)
+      {
+         str[index + j] = '*'; //脱敏处理
+      }
+
+      index += strlen(word);
+   }
 }
 
-int containing_forbidden_words(char str[]){
+int containing_forbidden_words(char str[])
+{
 
-    // Forbidden words
-    char *words[] = {"SpongeBob", "Britney Spears", "Paris Hilton", "Norrkӧping", "Norrk&ouml;ping", "Norrk%C3%B6ping"};
-    int hits[] = {0, 0, 0, 0, 0, 0}; // Every forbidden word need to have a zero in this array to be able to count number of char hits.
-    int numb_words = 6; // Number of forbidden words
+   // Forbidden words
+   char *words[] = {"SpongeBob", "Britney Spears", "Paris Hilton", "Norrkӧping", "Norrk&ouml;ping", "Norrk%C3%B6ping"};
+   int hits[] = {0, 0, 0, 0, 0, 0}; // Every forbidden word need to have a zero in this array to be able to count number of char hits.
+   int numb_words = 6; // Number of forbidden words
 
-    int str_length = strlen(str);
-    int c, w;   // Index for char in str, and index for word in words
+   int str_length = strlen(str);
+   int c, w;   // Index for char in str, and index for word in words
 
-    // Search for forbidden words
-    for (c = 0; c < str_length; c++)
-    {
-        for (w = 0; w < numb_words; w++)
-        {
-            if (tolower(words[w][ hits[w] ]) == tolower(str[c])){
-                if(++hits[w] == strlen(words[w]))
-                    return 1;
+   // Search for forbidden words
+   for(c = 0; c < str_length; c++)
+   {
+      for(w = 0; w < numb_words; w++)
+      {
+         if(tolower(words[w][ hits[w] ]) == tolower(str[c]))
+         {
+            if(++hits[w] == strlen(words[w]))
+            {
+               return 1;
             }
-            else if (hits[w] != 0)
-                hits[w--] = 0;
-        }
-    }
+         }
+         else if(hits[w] != 0)
+         {
+            hits[w--] = 0;
+         }
+      }
+   }
 
-    return 0;
+   return 0;
 }
 
 int send_to_client(int client_sockfd, char data[], int packages_size, ssize_t length)
 {
-    // if packages_size is set to 0, then the function will try to send all data as one package.
-    if(packages_size < 1)
-		{
-        if(send(client_sockfd, data, length, 0) == -1)
-        {
-            perror("Couldn't send data to the client.");
+   // if packages_size is set to 0, then the function will try to send all data as one package.
+   if(packages_size < 1)
+   {
+      if(send(client_sockfd, data, length, 0) == -1)
+      {
+         perror("Couldn't send data to the client.");
+         return -1;
+      }
+   }
+   else
+   {
+      int p;
+
+      for(p = 0; p * packages_size + packages_size < length; p++)
+      {
+         if(send(client_sockfd, (data + p * packages_size), packages_size, 0) == -1)
+         {
+            perror("Couldn't send any or just some data to the client. (loop)\n");
             return -1;
-        }
-    }
-    else
-    {
-        int p;
-        for(p = 0; p*packages_size + packages_size < length; p++){
-            if(send(client_sockfd, (data + p*packages_size), packages_size, 0) == -1)
-            {
-                perror("Couldn't send any or just some data to the client. (loop)\n");
-                return -1;
-            }
-        }
+         }
+      }
 
-        if (p*packages_size < length)
-        {
-            if(send(client_sockfd, (data + p*packages_size), length - p*packages_size, 0) == -1)
-            {
-                perror("Couldn't send any or just some data to the client.\n");
-                return -1;
-            }
-        }
-    }
+      if(p * packages_size < length)
+      {
+         if(send(client_sockfd, (data + p * packages_size), length - p * packages_size, 0) == -1)
+         {
+            perror("Couldn't send any or just some data to the client.\n");
+            return -1;
+         }
+      }
+   }
 
-    return 0;
+   return 0;
 }
 
 int http_request_send(int sockfd, http_request *req)
 {
-    LOG(LOG_TRACE, "Requesting: %s\n", req->search_path);
+   LOG(LOG_TRACE, "Requesting: %s\n", req->search_path);
 
-    char *request_buffer = http_build_request(req);
+   char *request_buffer = http_build_request(req);
 
-    // send the http request to the web server
-    if(send(sockfd, request_buffer, strlen(request_buffer), 0) == -1)
-    {
-        free(request_buffer);
-        perror("send");
-        return 1;
-    }
-    free(request_buffer);
+   // send the http request to the web server
+   if(send(sockfd, request_buffer, strlen(request_buffer), 0) == -1)
+   {
+      free(request_buffer);
+      perror("send");
+      return 1;
+   }
 
-    LOG(LOG_TRACE, "Sent HTTP header to web server\n");
+   free(request_buffer);
 
-    return 0;
+   LOG(LOG_TRACE, "Sent HTTP header to web server\n");
+
+   return 0;
 }
 
 void handle_client(int client_sockfd)
 {
-    char *line;
-    int server_sockfd;
-    http_request *req;
+   char *line;
+   int server_sockfd;
+   http_request *req;
 
-    req = http_read_header(client_sockfd);
-    if(req == NULL)
-    {
-        LOG(LOG_ERROR, "Failed to parse the header\n");
-        return;
-    }
+   req = http_read_header(client_sockfd);
 
-    if (containing_forbidden_words((char*)req->search_path) || containing_forbidden_words((char*)list_get_key(&req->metadata_head, "Host"))){
-        char *error1 = "HTTP/1.1 200 OK\r\nServer: Net Ninny\r\nContent-Type: text/html\r\n\r\n<html>\n\n<title>\nNet Ninny Error Page 1 for CPSC 441 Assignment 1\n</title>\n\n<body>\n<p>\nSorry, but the Web page that you were trying to access\nis inappropriate for you, based on the URL.\nThe page has been blocked to avoid insulting your intelligence.\n</p>\n\n<p>\nNet Ninny\n</p>\n\n</body>\n\n</html>\n";
-        http_request_destroy(req);
-        send_to_client(client_sockfd, error1, 0, strlen(error1));
-        return;
-    }
+   if(req == NULL)
+   {
+      LOG(LOG_ERROR, "Failed to parse the header\n");
+      return;
+   }
 
-    server_sockfd = http_connect(req);
-    if(server_sockfd == -1)
-    {
-        LOG(LOG_ERROR, "Failed to connect to host\n");
-        http_request_destroy(req);
-        return;
-    }
+   if(containing_forbidden_words((char *)req->search_path) || containing_forbidden_words((char *)list_get_key(&req->metadata_head, "Host")))
+   {
+      char *error1 = "HTTP/1.1 200 OK\r\nServer: Net Ninny\r\nContent-Type: text/html\r\n\r\n<html>\n\n<title>\nNet Ninny Error Page 1 for CPSC 441 Assignment 1\n</title>\n\n<body>\n<p>\nSorry, but the Web page that you were trying to access\nis inappropriate for you, based on the URL.\nThe page has been blocked to avoid insulting your intelligence.\n</p>\n\n<p>\nNet Ninny\n</p>\n\n</body>\n\n</html>\n";
+      http_request_destroy(req);
+      send_to_client(client_sockfd, error1, 0, strlen(error1));
+      return;
+   }
 
-    LOG(LOG_TRACE, "Connected to host\n");
+   server_sockfd = http_connect(req);
 
-    http_request_send(server_sockfd, req); 
-    http_request_destroy(req);
+   if(server_sockfd == -1)
+   {
+      LOG(LOG_ERROR, "Failed to connect to host\n");
+      http_request_destroy(req);
+      return;
+   }
 
-    LOG(LOG_TRACE, "Beginning to retrieve the response header\n");
-    int is_bad_encoding = 0;
-    int is_text_content = 0;
-	int is_html_content = 0;
-	int is_doc_content = 0;
-	int is_pdf_content = 0;
-	int is_docx_content = 0;
-    int line_length;
-    int content_length = 0;
-    while(1)
-    {
-        line = read_line(server_sockfd);
-        line_length = strlen(line);
-        send_to_client(client_sockfd, line, 0, line_length);
+   LOG(LOG_TRACE, "Connected to host\n");
 
-        if(line[0] == '\r' && line[1] == '\n')
-        {
-            // We received the end of the HTTP header
-            LOG(LOG_TRACE, "Received the end of the HTTP response header\n");
-            free(line);
-            break;
-        }
-        else if(18 <= line_length)
-        {
-            line[18] = '\0'; // Destroys the data in the line, but is needed to check if in coming data will be text format.
-            if (strcmp(line, "Content-Type: text") == 0)
+   http_request_send(server_sockfd, req);
+   http_request_destroy(req);
+
+   LOG(LOG_TRACE, "Beginning to retrieve the response header\n");
+   int is_bad_encoding = 0;
+   int is_text_content = 0;
+   int is_html_content = 0;
+   int is_doc_content = 0;
+   int is_pdf_content = 0;
+   int is_docx_content = 0;
+   int line_length;
+   int content_length = 0;
+
+   while(1)
+   {
+      line = read_line(server_sockfd);
+      line_length = strlen(line);
+      send_to_client(client_sockfd, line, 0, line_length);
+
+      if(line[0] == '\r' && line[1] == '\n')
+      {
+         // We received the end of the HTTP header
+         LOG(LOG_TRACE, "Received the end of the HTTP response header\n");
+         free(line);
+         break;
+      }
+      else if(18 <= line_length)
+      {
+         line[18] = '\0'; // Destroys the data in the line, but is needed to check if in coming data will be text format.
+
+         if(strcmp(line, "Content-Type: text") == 0)
+         {
+            LOG(LOG_TRACE, "Content-Type: text\n");
+            is_text_content = 1;
+         }
+         else if(strcmp(line, "Content-Type: text/html") == 0)  //.html
+         {
+            LOG(LOG_TRACE, "Content-Type: text/html\n");
+            is_html_content = 1;
+         }
+         else if(strcmp(line, "Content-Type: application/msword") == 0)  //.doc
+         {
+            LOG(LOG_TRACE, "Content-Type: application/msword\n");
+            is_doc_content = 1;
+         }
+         else if(strcmp(line, "Content-Type: application/pdf") == 0)  //.pdf
+         {
+            LOG(LOG_TRACE, "Content-Type: application/pdf\n");
+            is_pdf_content = 1;
+         }
+         else if(strcmp(line, "Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document") == 0)  //.docx
+         {
+            LOG(LOG_TRACE, "Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document\n");
+            is_docx_content = 1;
+         }
+         else if(strcmp(line, "Content-Encoding: ") == 0)
+         {
+            LOG(LOG_TRACE, "is_bad_encoding\n");
+            is_bad_encoding = 1;
+         }
+         else if(strcmp(line, "Content-Length: ") == 0)  //消息内容长度
+         {
+            char *line_copy = strdup(line);
+
+            strtok(line_copy, ":"); //key
+            char *value = strtok(NULL, "\r"); //value
+
+            LOG(LOG_TRACE, "Content-Length: %s\n", value);
+
+            // remove whitespaces :)
+            char *p = value;
+
+            while(*p == ' ')
             {
-				LOG(LOG_TRACE, "Content-Type: text\n");
-                is_text_content = 1;
-			}
-			else if (strcmp(line, "Content-Type: text/html") == 0) //.html
+               p++;
+            }
+
+            value = strdup(p);
+
+            free(line_copy);
+
+            content_length = atoi(value); //为了确保静态文本类型能接收完整，再进行脱敏
+         }
+         else
+         {
+            char *Type = "Content-Type: ";
+
+            if(strncmp(line, Type, strlen(Type)) == 0)
             {
-				LOG(LOG_TRACE, "Content-Type: text/html\n");
-                is_html_content = 1;
-			}
-			else if (strcmp(line, "Content-Type: application/msword") == 0) //.doc
-			{
-				LOG(LOG_TRACE, "Content-Type: application/msword\n");
-                is_doc_content = 1;
-			}
-			else if (strcmp(line, "Content-Type: application/pdf") == 0) //.pdf
-			{
-				LOG(LOG_TRACE, "Content-Type: application/pdf\n");
-                is_pdf_content = 1;
-			}
-			else if (strcmp(line, "Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document") == 0) //.docx
-			{
-				LOG(LOG_TRACE, "Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document\n");
-				is_docx_content = 1;
-			}
-            else if (strcmp(line, "Content-Encoding: ") == 0)
-			{
-				LOG(LOG_TRACE, "is_bad_encoding\n");
-                is_bad_encoding = 1;
-			}
-			else if (strcmp(line, "Content-Length: ") == 0) //消息内容长度
-			{
-				char *line_copy = strdup(line); 
-				
-				strtok(line_copy, ":"); //key
-				char *value = strtok(NULL, "\r"); //value
-				
-				LOG(LOG_TRACE, "Content-Length: %s\n", value);
-				
-				// remove whitespaces :)
-				char *p = value; 
-				while(*p == ' ') p++; 
-				value = strdup(p); 
-				
-				free(line_copy);
+               LOG(LOG_TRACE, "line -> %s\n", line);
+            }
+         }
+      }
 
-                content_length = atoi(value); //为了确保静态文本类型能接收完整，再进行脱敏
-			}
-			else
-			{
-				char *Type = "Content-Type: ";
-				if(strncmp(line, Type, strlen(Type)) == 0)
-				{
-					LOG(LOG_TRACE, "line -> %s\n", line);
-				}
-			}
-        }
+      free(line);
+   }
 
-        free(line);
-    }
+   LOG(LOG_TRACE, "Beginning to retrieve content\n");
+   ssize_t chunk_length;
+   char *temp = http_read_chunk(server_sockfd, &chunk_length);
+   LOG(LOG_TRACE, "Received the content, %d bytes\n", (int)chunk_length);
 
-    LOG(LOG_TRACE, "Beginning to retrieve content\n");
-    ssize_t chunk_length;
-    char *temp = http_read_chunk(server_sockfd, &chunk_length);
-    LOG(LOG_TRACE, "Received the content, %d bytes\n", (int)chunk_length);
+   if(content_length > 0 && chunk_length != content_length)
+   {
+      LOG(LOG_TRACE, "Received the content_length, %d bytes\n", content_length);
+   }
 
-	if(content_length > 0 && chunk_length != content_length)
-	{
-		LOG(LOG_TRACE, "Received the content_length, %d bytes\n", content_length);
-	}
+   if(is_text_content && !is_bad_encoding && containing_forbidden_words(temp))
+   {
+      LOG(LOG_TRACE, "Received data contains forbidden words!\n");
+      char *error2 = "<html>\n<title>\nNet Ninny Error Page 3 for CPSC 441 Assignment 1\n</title>\n\n<body>\n<p>\nSorry, but the Web page that you were trying to access\nis inappropriate for you, based on some of the words it contains.\nThe page has been blocked to avoid insulting your intelligence.\n</p>\n\n<p>\nNet Ninny\n</p>\n\n</body>\n\n</html>\n";
 
-    if (is_text_content && !is_bad_encoding && containing_forbidden_words(temp))
-    {
-        LOG(LOG_TRACE, "Received data contains forbidden words!\n");
-        char *error2 = "<html>\n<title>\nNet Ninny Error Page 3 for CPSC 441 Assignment 1\n</title>\n\n<body>\n<p>\nSorry, but the Web page that you were trying to access\nis inappropriate for you, based on some of the words it contains.\nThe page has been blocked to avoid insulting your intelligence.\n</p>\n\n<p>\nNet Ninny\n</p>\n\n</body>\n\n</html>\n";
+      send_to_client(client_sockfd, error2, 0, strlen(error2));
+   }
+   else
+   {
+      sensitive_words(temp, chunk_length); //脱敏处理
+      send_to_client(client_sockfd, temp, 0, chunk_length);
+   }
 
-        send_to_client(client_sockfd, error2, 0, strlen(error2));
-    }
-    else
-    {
-		sensitive_words(temp, chunk_length); //脱敏处理
-		send_to_client(client_sockfd, temp, 0, chunk_length);
-	}
-    free(temp);
-    close(server_sockfd);
+   free(temp);
+   close(server_sockfd);
 }
 
 void start_server(char *port)
 {
-    printf("Starting server\n");
+   printf("Starting server\n");
 
-    int sockfd, new_fd;
-    struct addrinfo hints, *servinfo, *p;
-    struct sockaddr_storage their_addr;
-    socklen_t sin_size;
-    int rv;
-    int yes = 1;
+   int sockfd, new_fd;
+   struct addrinfo hints, *servinfo, *p;
+   struct sockaddr_storage their_addr;
+   socklen_t sin_size;
+   int rv;
+   int yes = 1;
 
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
+   memset(&hints, 0, sizeof(hints));
+   hints.ai_family = AF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+   hints.ai_flags = AI_PASSIVE;
 
-    if((rv = getaddrinfo(NULL, port, &hints, &servinfo)) != 0)
-    {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-        return;
-    }
+   if((rv = getaddrinfo(NULL, port, &hints, &servinfo)) != 0)
+   {
+      fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+      return;
+   }
 
-    for(p = servinfo; p != NULL; p = p->ai_next)
-    {
-        if((sockfd = socket(p->ai_family, p->ai_socktype,
-                        p->ai_protocol)) == -1)
-        {
-            perror("server: socket");
-            continue;
-        }
+   for(p = servinfo; p != NULL; p = p->ai_next)
+   {
+      if((sockfd = socket(p->ai_family, p->ai_socktype,
+                          p->ai_protocol)) == -1)
+      {
+         perror("server: socket");
+         continue;
+      }
 
-        if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
+      if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
                     sizeof(int)) == -1)
-        {
-            perror("setsockopt");
-            exit(1);
-        }
+      {
+         perror("setsockopt");
+         exit(1);
+      }
 
-        if(bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
-        {
-            close(sockfd);
-            perror("server: bind");
-            continue;
-        }
+      if(bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
+      {
+         close(sockfd);
+         perror("server: bind");
+         continue;
+      }
 
-        break;
-    }
+      break;
+   }
 
-    if(p == NULL)
-    {
-        fprintf(stderr, "server: failed to bind\n");
-        return;
-    }
+   if(p == NULL)
+   {
+      fprintf(stderr, "server: failed to bind\n");
+      return;
+   }
 
-    freeaddrinfo(servinfo);
+   freeaddrinfo(servinfo);
 
-    if(listen(sockfd, 10) == -1)
-    {
-        perror("listen");
-        exit(1);
-    }
+   if(listen(sockfd, 10) == -1)
+   {
+      perror("listen");
+      exit(1);
+   }
 
-    printf("server: waiting for connections..\n");
-    while(1)
-    {
-        sin_size = sizeof(their_addr);
-        new_fd = accept(sockfd, (struct sockaddr*)&their_addr, &sin_size);
-        if(new_fd == -1)
-        {
-            perror("accept");
-            continue;
-        }
+   printf("server: waiting for connections..\n");
 
-        printf("Receieved connection\n");
+   while(1)
+   {
+      sin_size = sizeof(their_addr);
+      new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
 
-        signal(SIGCHLD, SIG_IGN);
-        pid_t child_pid = fork();
-        if(!child_pid)
-        {
-            handle_client(new_fd);
+      if(new_fd == -1)
+      {
+         perror("accept");
+         continue;
+      }
 
-            close(new_fd);
-            exit(0);
-        }
-        close(new_fd);
-    }
+      printf("Receieved connection\n");
+
+      signal(SIGCHLD, SIG_IGN);
+      pid_t child_pid = fork();
+
+      if(!child_pid)
+      {
+         handle_client(new_fd);
+
+         close(new_fd);
+         exit(0);
+      }
+
+      close(new_fd);
+   }
 }
 
 int main(int argc, char *argv[])
 {
-    char *port = "8080";
-    if (argc > 1)
-        port = argv[1];
-    start_server(port);
-    return 0;
+   char *port = "8080";
+
+   if(argc > 1)
+   {
+      port = argv[1];
+   }
+
+   start_server(port);
+   return 0;
 }
 
