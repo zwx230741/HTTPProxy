@@ -86,12 +86,13 @@ void http_parse_method(http_request* result, const char* line)
     copy = p = strdup(line);
     char* token = NULL;
     int s = METHOD;
+	int i;
 
     while ((token = strsep(&p, " \r\n")) != NULL) {
         switch (s) {
             case METHOD: {
                 int found = 0;
-                for (int i = 0; i < http_methods_len; i++) {
+                for (i = 0; i < http_methods_len; i++) {
                     if (strcmp(token, http_methods[i]) == 0) {
                         found = 1;
                         result->method = i;
@@ -196,19 +197,22 @@ char *http_build_request(http_request *req)
     TAILQ_FOREACH(item, &req->metadata_head, entries) {
         // Remove Connection properties in header in case
         // there are any
+		
         if(strcmp(item->key, "Connection") == 0 || 
             strcmp(item->key, "Proxy-Connection") == 0)
         {
             continue; 
         }
 		else if(strcmp(item->key, "Accept-Encoding") == 0 &&
-				strcmp(item->value, "gzip") == 0)
+				strncmp(item->value, "gzip", strlen("gzip")) == 0)
 		{
+        	LOG(LOG_TRACE, "%s: %s\n", item->key, item->value);
 			continue; //过滤文本压缩功能
 		}
 		else if(strcmp(item->key, "Range") == 0 ||
 				strcmp(item->key, "nlf-Range") == 0) //过滤请求部分报文，强制请求全部
         {
+        	LOG(LOG_TRACE, "%s: %s\n", item->key, item->value);
             continue; 
         }
 

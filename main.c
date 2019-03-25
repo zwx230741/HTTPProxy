@@ -52,6 +52,68 @@ char *read_line(int sockfd)
     return NULL;
 }
 
+int *fail(char *p) {
+    int len = strlen(p);
+    int *f = (int *) malloc(len * sizeof(int));
+    f[0] = -1;
+    int i, j;
+    for(j = 1; j < len; j++) {
+        for(i = f[j-1]; ; i = f[i]) {
+            if(p[j] == p[i+1]) {
+                f[j] = i + 1;
+                break;
+            }
+            else if(i == -1) {
+                f[j] = -1;
+                break;
+            }
+        }
+    }
+    return f;
+}
+
+int kmp(char *t, int len, char *p) {
+    int *f = fail(p);
+    int i, j;
+    for(i = 0, j = 0; i < len && j < strlen(p); ) {
+        if(t[i] == p[j]) {
+            i++;
+            j++;
+        }
+        else if(j == 0)
+            i++;
+        else
+            j = f[j-1] + 1;
+    }
+	free(f);
+    return j == strlen(p) ? i - strlen(p) : -1;
+}
+
+void sensitive_words(char str[], int len)
+{	
+	char word[] = "农民";
+	int index = 0;
+	int res = 0;
+	int i = 0, j = 0;
+
+	for(i = 0; i < len; i++)
+	{
+		res = kmp(str + index, len, word);
+		if(res < 0)
+		{
+			break;
+		}
+		LOG(LOG_ERROR, "sensitive_words res %d\n", res);
+		index += res;		
+		LOG(LOG_ERROR, "sensitive_words index %d\n", index);
+		for(j = 0; j < strlen(word); j++)
+		{
+			str[index + j] = '*'; //脱敏处理
+		}
+		index += strlen(word);
+	}
+}
+
 int containing_forbidden_words(char str[]){
 
     // Forbidden words
@@ -170,7 +232,12 @@ void handle_client(int client_sockfd)
     LOG(LOG_TRACE, "Beginning to retrieve the response header\n");
     int is_bad_encoding = 0;
     int is_text_content = 0;
+	int is_html_content = 0;
+	int is_doc_content = 0;
+	int is_pdf_content = 0;
+	int is_docx_content = 0;
     int line_length;
+    int content_length = 0;
     while(1)
     {
         line = read_line(server_sockfd);
@@ -188,9 +255,61 @@ void handle_client(int client_sockfd)
         {
             line[18] = '\0'; // Destroys the data in the line, but is needed to check if in coming data will be text format.
             if (strcmp(line, "Content-Type: text") == 0)
+            {
+				LOG(LOG_TRACE, "Content-Type: text\n");
                 is_text_content = 1;
+			}
+			else if (strcmp(line, "Content-Type: text/html") == 0) //.html
+            {
+				LOG(LOG_TRACE, "Content-Type: text/html\n");
+                is_html_content = 1;
+			}
+			else if (strcmp(line, "Content-Type: application/msword") == 0) //.doc
+			{
+				LOG(LOG_TRACE, "Content-Type: application/msword\n");
+                is_doc_content = 1;
+			}
+			else if (strcmp(line, "Content-Type: application/pdf") == 0) //.pdf
+			{
+				LOG(LOG_TRACE, "Content-Type: application/pdf\n");
+                is_pdf_content = 1;
+			}
+			else if (strcmp(line, "Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document") == 0) //.docx
+			{
+				LOG(LOG_TRACE, "Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document\n");
+				is_docx_content = 1;
+			}
             else if (strcmp(line, "Content-Encoding: ") == 0)
+			{
+				LOG(LOG_TRACE, "is_bad_encoding\n");
                 is_bad_encoding = 1;
+			}
+			else if (strcmp(line, "Content-Length: ") == 0) //消息内容长度
+			{
+				char *line_copy = strdup(line); 
+				
+				strtok(line_copy, ":"); //key
+				char *value = strtok(NULL, "\r"); //value
+				
+				LOG(LOG_TRACE, "Content-Length: %s\n", value);
+				
+				// remove whitespaces :)
+				char *p = value; 
+				while(*p == ' ') p++; 
+				value = strdup(p); 
+				
+				free(line_copy);
+
+                content_length = atoi(value); //为了确保静态文本类型能接收完整，再进行脱敏
+			}
+			else
+			{
+				char *Type = "Content-Type: ";
+				if(strncmp(line, Type, strlen(Type)) == 0)
+				{
+					LOG(LOG_TRACE, "line -> %s\n", line);
+				}
+			}
         }
 
         free(line);
@@ -201,6 +320,11 @@ void handle_client(int client_sockfd)
     char *temp = http_read_chunk(server_sockfd, &chunk_length);
     LOG(LOG_TRACE, "Received the content, %d bytes\n", (int)chunk_length);
 
+	if(content_length > 0 && chunk_length != content_length)
+	{
+		LOG(LOG_TRACE, "Received the content_length, %d bytes\n", content_length);
+	}
+
     if (is_text_content && !is_bad_encoding && containing_forbidden_words(temp))
     {
         LOG(LOG_TRACE, "Received data contains forbidden words!\n");
@@ -209,7 +333,10 @@ void handle_client(int client_sockfd)
         send_to_client(client_sockfd, error2, 0, strlen(error2));
     }
     else
-        send_to_client(client_sockfd, temp, 0, chunk_length);
+    {
+		sensitive_words(temp, chunk_length); //脱敏处理
+		send_to_client(client_sockfd, temp, 0, chunk_length);
+	}
     free(temp);
     close(server_sockfd);
 }
