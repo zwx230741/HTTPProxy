@@ -201,6 +201,16 @@ char *http_build_request(http_request *req)
         {
             continue; 
         }
+		else if(strcmp(item->key, "Accept-Encoding") == 0 &&
+				strcmp(item->value, "gzip") == 0)
+		{
+			continue; //过滤文本压缩功能
+		}
+		else if(strcmp(item->key, "Range") == 0 ||
+				strcmp(item->key, "nlf-Range") == 0) //过滤请求部分报文，强制请求全部
+        {
+            continue; 
+        }
 
         size += strlen(item->key) + strlen(": ") + strlen(item->value) + strlen("\r\n");  
         request_buffer = realloc(request_buffer, size);
