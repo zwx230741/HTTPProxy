@@ -1,6 +1,6 @@
-#ifndef HTTP_MESSAGE_HH
-#define HTTP_MESSAGE_HH
-#include "proxy.h"
+#ifndef MESSAGE_HH
+#define MESSAGE_HH
+#include "http.h"
 
 void http_request_init(http_request**);
 void http_request_destroy(http_request*);

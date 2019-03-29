@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "list.h"
-#include "proxy.h"
+#include "http.h"
 
 const char *list_get_key(struct METADATA_HEAD *list, const char *key)
 {

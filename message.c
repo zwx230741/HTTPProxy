@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/queue.h>
-#include "proxy.h"
+#include "http.h"
 
 
 int http_methods_len = 9;

@@ -15,9 +15,9 @@
 #include <fcntl.h>
 #include <time.h>
 
-#include "proxy.h"
+#include "http.h"
 #include "list.h"
-#include "http_message.h"
+#include "message.h"
 
 /*
 Creates a TCP connection to the given host 

@@ -13,10 +13,10 @@
 #include <sys/queue.h>
 #include <ctype.h>
 
-#include "proxy.h"
+#include "http.h"
 #include "net.h"
 #include "list.h"
-#include "http_message.h"
+#include "message.h"
 
 char *read_line(int sockfd)
 {
